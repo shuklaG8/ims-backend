@@ -1,6 +1,15 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from typing import AsyncGenerator
+import ssl
 from app.core.config import settings
+
+connect_args = {}
+# Configure SSL context for PostgreSQL connections in production
+if settings.ENVIRONMENT == "production":
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    connect_args["ssl"] = ssl_context
 
 # Setup async engine
 # Note: echo=True can be set for debugging queries in dev environment
@@ -8,7 +17,8 @@ engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
     future=True,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    connect_args=connect_args
 )
 
 # Async session maker

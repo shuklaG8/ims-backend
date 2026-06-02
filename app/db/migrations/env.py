@@ -58,10 +58,19 @@ async def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    import ssl
+    connect_args = {}
+    if settings.ENVIRONMENT == "production":
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        connect_args["ssl"] = ssl_context
+
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:
