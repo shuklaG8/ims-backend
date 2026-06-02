@@ -1,4 +1,9 @@
 import logging
+import asyncio
+from contextlib import asynccontextmanager
+from pathlib import Path
+from alembic.config import Config
+from alembic import command
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,13 +19,39 @@ logging.basicConfig(
 )
 logger = logging.getLogger("inventory_app")
 
+# Helper to run migrations programmatically
+def run_upgrade():
+    try:
+        logger.info("Initializing database migrations...")
+        backend_dir = Path(__file__).resolve().parent.parent
+        alembic_ini_path = backend_dir / "alembic.ini"
+        
+        if not alembic_ini_path.exists():
+            logger.warning(f"alembic.ini not found at {alembic_ini_path}. Skipping startup migrations.")
+            return
+
+        alembic_cfg = Config(str(alembic_ini_path))
+        # Ensure database URL from settings is set
+        alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Database migrations applied successfully.")
+    except Exception as e:
+        logger.exception(f"Error applying migrations on startup: {str(e)}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Run migrations in a separate thread so it doesn't block the event loop
+    await asyncio.to_thread(run_upgrade)
+    yield
+
 # Initialize FastAPI application
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Backend API for Inventory & Order Management System",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # CORS Configuration
