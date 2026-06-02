@@ -24,7 +24,9 @@ class CustomerService:
             phone=schema.phone,
             address=schema.address
         )
-        return await self.repository.create(customer)
+        created = await self.repository.create(customer)
+        await self.repository.db.commit()
+        return created
 
     async def update_customer(self, id: int, schema: CustomerUpdate) -> Customer:
         customer = await self.repository.get(id)
@@ -50,7 +52,9 @@ class CustomerService:
         if schema.address is not None:
             customer.address = schema.address
 
-        return await self.repository.update(customer)
+        updated = await self.repository.update(customer)
+        await self.repository.db.commit()
+        return updated
 
     async def delete_customer(self, id: int) -> bool:
         customer = await self.repository.get(id)
@@ -60,8 +64,11 @@ class CustomerService:
                 detail=f"Customer with ID {id} not found."
             )
         try:
-            return await self.repository.delete(id)
+            deleted = await self.repository.delete(id)
+            await self.repository.db.commit()
+            return deleted
         except Exception as e:
+            await self.repository.db.rollback()
             # Handle DB integrity exceptions, e.g. if the customer has placed orders
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

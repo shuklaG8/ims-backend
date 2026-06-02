@@ -25,7 +25,9 @@ class ProductService:
             price=schema.price,
             stock_quantity=schema.stock_quantity
         )
-        return await self.repository.create(product)
+        created = await self.repository.create(product)
+        await self.repository.db.commit()
+        return created
 
     async def update_product(self, id: int, schema: ProductUpdate) -> Product:
         product = await self.repository.get(id)
@@ -53,7 +55,9 @@ class ProductService:
         if schema.stock_quantity is not None:
             product.stock_quantity = schema.stock_quantity
 
-        return await self.repository.update(product)
+        updated = await self.repository.update(product)
+        await self.repository.db.commit()
+        return updated
 
     async def delete_product(self, id: int) -> bool:
         product = await self.repository.get(id)
@@ -63,8 +67,11 @@ class ProductService:
                 detail=f"Product with ID {id} not found."
             )
         try:
-            return await self.repository.delete(id)
+            deleted = await self.repository.delete(id)
+            await self.repository.db.commit()
+            return deleted
         except Exception as e:
+            await self.repository.db.rollback()
             # Handle DB integrity exceptions, e.g. if the product is in order items
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
